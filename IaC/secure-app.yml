@@ -1,0 +1,51 @@
+---
+- name: Secure 3-Tier App
+  hosts: frontend, backend, db
+  become: true
+
+  tasks:
+    - name: Update and upgrade the system
+      apt:
+        update_cache: yes
+        upgrade: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install necessary packages
+      apt:
+        name:
+          - nginx
+          - python3-pip
+        state: present
+      when: inventory_hostname == "frontend"
+
+    - name: Configure firewall to allow HTTP on frontend
+      ufw:
+        rule: allow
+        name: 'Apache'
+      when: inventory_hostname == "frontend"
+
+    - name: Configure firewall on backend and db
+      ufw:
+        rule: allow
+        port: 8080
+      when: inventory_hostname == "backend"
+
+    - name: Configure firewall on DB
+      ufw:
+        rule: allow
+        port: 1433
+      when: inventory_hostname == "db"
+
+    - name: Secure nginx app on frontend
+      lineinfile:
+        path: "/etc/nginx/nginx.conf"
+        regexp: "^# server_tokens"
+        line: "server_tokens off;"
+      when: inventory_hostname == "frontend"
+
+    - name: Restart nginx service on frontend
+      service:
+        name: nginx
+        state: restarted
+      when: inventory_hostname == "frontend"
